@@ -22,60 +22,61 @@ class ChangeHandler(FileSystemEventHandler):
         execute_command():
             Executes the specified command if no changes have been detected within the delay period.
     """
-    def __init__(self, delay, command):
-        self.command = command
+    def __init__(self, delay, commands):
+        self.commands = commands  # List of commands
         self.delay = delay
         self.last_modified = time.time()
         self.timer = None
-        print(f"Handler initialized with delay={delay} and command={command}")
+        print(f"Handler initialized with delay={delay} and commands={commands}")
 
     def on_any_event(self, event):
         print(f"Detected change in: {event.src_path}")
-        # Cập nhật thời gian khi có sự kiện thay đổi
+        # Update the last modified time when an event occurs
         self.last_modified = time.time()
 
         if self.timer is not None:
             self.timer.cancel()
 
-        # Tạo và bắt đầu timer
+        # Create and start the timer
         self.timer = threading.Timer(1, self.countdown, args=[self.delay])
         self.timer.start()
 
     def countdown(self, countdown_time):
         print(f"Countdown started: {countdown_time} seconds")
         for i in range(countdown_time, 0, -1):
-            print(f"Command will be executed in {i} seconds...", end='\r')
+            print(f"Commands will be executed in {i} seconds...", end='\r')
             time.sleep(1)
 
-        self.execute_command()
+        self.execute_commands()
 
-    def execute_command(self):
-        # Kiểm tra nếu không có thay đổi nào thêm trong khoảng delay
+    def execute_commands(self):
+        # Check if no changes occurred during the delay
         if time.time() - self.last_modified >= self.delay:
-            print(f"\nExecuting command: {self.command}")
-            subprocess.call(self.command, shell=True)
+            for command in self.commands:
+                print(f"\nExecuting command: {command}")
+                subprocess.call(command, shell=True)
 
 """
 Example usage:
-    python monitor.py /path/to/folder "echo 'Folder has changed'" --delay 5
+    python monitor.py --folder /path/to/folder --commands "echo 'First command'" "echo 'Second command'" --delay 5
 """
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Monitor folder changes and execute a command after a delay.")
-    parser.add_argument("folder", type=str, help="Folder to monitor")
-    parser.add_argument("command", type=str, help="Command to execute when files change")
-    parser.add_argument("--delay", type=int, default=5, help="Delay in seconds before executing the command (default: 5 seconds)")
+    parser = argparse.ArgumentParser(description="Monitor folder changes and execute commands after a delay.")
+    parser.add_argument("--folder", type=str, help="Folder to monitor")
+    parser.add_argument("--commands", type=str, nargs='+', help="Commands to execute when files change")
+    parser.add_argument("--delay", type=int, default=5, help="Delay in seconds before executing the commands (default: 5 seconds)")
 
     args = parser.parse_args()
 
     path_to_watch = args.folder  # Thư mục giám sát
-    command_to_run = args.command  # Lệnh thực thi
+    commands_to_run = args.commands  # Danh sách lệnh thực thi
     delay_in_seconds = args.delay  # Khoảng thời gian chờ
 
     print(f"Monitoring folder: {path_to_watch}")
-    print(f"Command to run: {command_to_run}")
+    print(f"Commands to run: {commands_to_run}")
     print(f"Delay set to: {delay_in_seconds} seconds")
 
-    event_handler = ChangeHandler(delay=delay_in_seconds, command=command_to_run)
+    event_handler = ChangeHandler(delay=delay_in_seconds, commands=commands_to_run)
     observer = Observer()
     observer.schedule(event_handler, path=path_to_watch, recursive=True)
     

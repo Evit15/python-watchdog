@@ -10,5 +10,5 @@ docker build -t python-watchdog .
 
 ## Run the docker image
 ```sh
-docker run --rm -v $HOME/test:/apps/ evit15/python-watchdog:latest /apps "echo 'Folder has changed'" --delay 5
+docker run --rm -v $HOME/test:/apps/ evit15/python-watchdog:latest --folder /apps --commands "echo 'First command'" "echo 'Second command'" --delay 5
 ```
