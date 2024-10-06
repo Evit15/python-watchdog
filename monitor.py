@@ -29,8 +29,22 @@ class ChangeHandler(FileSystemEventHandler):
         self.timer = None
         print(f"Handler initialized with delay={delay} and commands={commands}")
 
-    def on_any_event(self, event):
-        print(f"Detected change in: {event.src_path}")
+    def on_modified(self, event):
+        if not event.is_directory:
+            print(f"File modified: {event.src_path}")
+            self.trigger_event()
+
+    def on_created(self, event):
+        if not event.is_directory:
+            print(f"File created: {event.src_path}")
+            self.trigger_event()
+
+    def on_deleted(self, event):
+        if not event.is_directory:
+            print(f"File deleted: {event.src_path}")
+            self.trigger_event()
+
+    def trigger_event(self):
         # Update the last modified time when an event occurs
         self.last_modified = time.time()
 
