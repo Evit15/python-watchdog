@@ -3,7 +3,7 @@ name: Build and Tag Docker Image
 on:
   push:
     branches:
-      - docker  # Chạy workflow khi có push vào nhánh chính
+      - main  # Chạy workflow khi có push vào nhánh chính
 
 jobs:
   build_and_tag:
