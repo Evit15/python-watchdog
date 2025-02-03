@@ -1,0 +1,71 @@
+name: Build and Tag Docker Image
+
+on:
+  push:
+    branches:
+      - docker  # Chạy workflow khi có push vào nhánh chính
+
+jobs:
+  build_and_tag:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v1
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Get current Docker tag
+      id: current_tag
+      run: |
+        sudo apt-get update && sudo apt-get install -y jq
+        TOKEN=$(curl -s -H "Content-Type: application/json" -X POST -d '{"username": "'${{ secrets.DOCKER_USERNAME }}'", "password": "'${{ secrets.DOCKER_HUB_TOKEN }}'"}' https://hub.docker.com/v2/users/login/ | jq -r .token)
+
+        TAGS=$(curl -s -H "Authorization: JWT ${TOKEN}" https://hub.docker.com/v2/repositories/${{ secrets.DOCKER_USERNAME }}/python-watchdog/tags/ | jq -r '.results[].name' | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V)
+        echo "All tags: $TAGS"
+        TAG=$(echo "$TAGS" | tail -n 1)
+        echo "Current tag: $TAG"
+        echo "::set-output name=tag::$TAG"
+
+    - name: Increment tag
+      id: increment_tag
+      run: |
+        # Get current tag
+        TAG=${{ steps.current_tag.outputs.tag }}
+        
+        # Split the tag into an array
+        IFS='.' read -r -a TAG_PARTS <<< "$TAG"
+        
+        # Increment the patch version
+        MAJOR=${TAG_PARTS[0]}
+        MINOR=${TAG_PARTS[1]}
+        PATCH=${TAG_PARTS[2]}
+        PATCH=$((PATCH + 1))
+        
+        # Form the new tag
+        NEW_TAG="$MAJOR.$MINOR.$PATCH"
+        
+        echo "New tag: $NEW_TAG"
+        echo "::set-output name=new_tag::$NEW_TAG"
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: ${{ secrets.DOCKER_USERNAME }}/python-watchdog:${{ steps.increment_tag.outputs.new_tag }},${{ secrets.DOCKER_USERNAME }}/python-watchdog:latest
+        platforms: linux/amd64,linux/arm64
